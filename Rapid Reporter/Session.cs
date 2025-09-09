@@ -14,9 +14,52 @@ namespace Rapid_Reporter
 {
     class Session
     {
+        // Create ZIP file containing CSV, HTML (if created), and screenshots
+        public void CreateSessionZip()
+        {
+            try
+            {
+                var filesToZip = new System.Collections.Generic.List<string>();
+                // Add CSV file
+                filesToZip.Add(_sessionFileFull);
+                // Add HTML file if created
+                string htmlFile = null;
+                if (createHTML)
+                {
+                    // Try to find the HTML file in the working directory
+                    var htmlFiles = System.IO.Directory.GetFiles(WorkingDir, "*.htm*");
+                    if (htmlFiles.Length > 0)
+                    {
+                        htmlFile = htmlFiles[0];
+                        filesToZip.Add(htmlFile);
+                    }
+                }
+                // Add screenshots (PNG and JPG files in WorkingDir)
+                var pngFiles = System.IO.Directory.GetFiles(WorkingDir, "*.png");
+                var jpgFiles = System.IO.Directory.GetFiles(WorkingDir, "*.jpg");
+                filesToZip.AddRange(pngFiles);
+                filesToZip.AddRange(jpgFiles);
+                // Prepare ZIP file path with timestamp
+                string zipFile = System.IO.Path.Combine(WorkingDir, StartingTime.ToString("yyyyMMdd_HHmmss") + ".zip");
+                // Build command line for 7-Zip
+                string args = "a \"" + zipFile + "\" " + string.Join(" ", filesToZip.ConvertAll(f => "\"" + f + "\""));
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = SevenZipPath;
+                process.StartInfo.Arguments = args;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.UseShellExecute = false;
+                process.Start();
+                process.WaitForExit();
+                Logger.Record("[CreateSessionZip]: ZIP file created at " + zipFile, "Session", "info");
+            }
+            catch (Exception ex)
+            {
+                Logger.Record("[CreateSessionZip]: Failed to create ZIP file: " + ex.Message, "Session", "error");
+            }
+        }
         /** Variables **/
         /***************/
-        
+
         // This is configurable from inside the application:
         // Session characteristics:
         public DateTime StartingTime;   // Time started, starts when moving from 'charter' to 'notes'.
@@ -37,6 +80,8 @@ namespace Rapid_Reporter
         private string _sessionFile;      // File to write the session to
         private string _sessionFileFull;  // workingDir + sessionFile
         public string SessionNote = "";         // Latest note only
+        // Path to 7-Zip executable
+        public string SevenZipPath = @"C:\Program Files\7-Zip\7z.exe";
 
         // Session State Based Behavior:
         //  The application iterates: tester, charter, notes.
@@ -66,7 +111,7 @@ namespace Rapid_Reporter
             UpdateNotes("Environment", Environment);
             UpdateNotes("Versions", Versions);
         }
-        
+
         private void CreateWorkingDir(string path)
         {
             if (Directory.Exists(path))
@@ -96,7 +141,7 @@ namespace Rapid_Reporter
                 string.IsNullOrWhiteSpace(ScenarioId)) return false;
             _sessionFile = Path.GetFileName(csvFile);
             WorkingDir = Path.GetDirectoryName(csvFile) + @"\";
-            _sessionFileFull = csvFile; 
+            _sessionFileFull = csvFile;
             return true;
         }
 
@@ -117,6 +162,8 @@ namespace Rapid_Reporter
                 {
                     Csv2Html(_sessionFileFull, false);
                 }
+                // After HTML creation (or not), create ZIP file with screenshot, CSV, and HTML
+                CreateSessionZip();
             }
 
             Logger.Record("[CloseSession]: ...Session closed", "Session", "info");
@@ -145,7 +192,8 @@ namespace Rapid_Reporter
             bool exDrRetry;
 
             do
-            { exDrRetry = false;
+            {
+                exDrRetry = false;
                 try
                 {
                     File.AppendAllText(_sessionFileFull, note, Encoding.UTF8);
@@ -214,14 +262,14 @@ namespace Rapid_Reporter
                     File.Delete(htmlFileFull);
                     var htmlTop = string.Format("{0}{1}{2}{3}{4}{5}{1}{6}", (object)Htmlstrings.AHtmlHead,
                         (object)title, (object)Htmlstrings.BTitleOut, (object)Htmlstrings.CStyle,
-                        (object) Htmlstrings.DJavascript, (object) Htmlstrings.EBody, (object) Htmlstrings.GTable);
+                        (object)Htmlstrings.DJavascript, (object)Htmlstrings.EBody, (object)Htmlstrings.GTable);
                     var topNotes = "";
                     var bottomNotes = "";
 
                     foreach (var line in File.ReadAllLines(csvFileFull, Encoding.UTF8))
-					{
+                    {
                         if ("" == line) continue;
-                        var note = ""; 
+                        var note = "";
                         var thisLine = line.Split(',');
                         if (thisLine.Length > 2)
                         {
@@ -251,16 +299,16 @@ namespace Rapid_Reporter
                             }
                         }
 
-					    if (thisLine[1] == "Type" || thisLine[1] == "Session Reporter" ||
-					        (thisLine[1] == "Scenario ID" || thisLine[1] == "Session Charter") ||
-					        (thisLine[1] == "Environment" || thisLine[1] == "Versions" || thisLine[1] == "Summary"))
-					    {
-					        topNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
-					    }
-					    else
-					    {
-					        bottomNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
-					    }
+                        if (thisLine[1] == "Type" || thisLine[1] == "Session Reporter" ||
+                            (thisLine[1] == "Scenario ID" || thisLine[1] == "Session Charter") ||
+                            (thisLine[1] == "Environment" || thisLine[1] == "Versions" || thisLine[1] == "Summary"))
+                        {
+                            topNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
+                        }
+                        else
+                        {
+                            bottomNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
+                        }
                         t = "td";
                     }
                     topNotes = topNotes + BuildTableRow("td", "", "", "");
