@@ -15,6 +15,7 @@ namespace Rapid_Reporter
     {
         private static Dictionary<int, HotKey> _dictHotKeyToCalBackProc;
 
+
         [DllImport("user32.dll")]
         private static extern bool RegisterHotKey(IntPtr hWnd, int id, UInt32 fsModifiers, UInt32 vlc);
 
