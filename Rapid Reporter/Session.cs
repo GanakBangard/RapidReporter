@@ -64,8 +64,14 @@ namespace Rapid_Reporter
 
             StartingTime = DateTime.Now; // The time the session started is used for many things, like knowing the session file name
                                          // Folder name matches .html file naming: [timestamp] - [ScenarioId]
+            string baseFolderName = string.Format("{0} - {1}", StartingTime.ToString("yyyyMMdd_HHmmss"), ScenarioId);
+            // Append 'Bug' if ScenarioId contains 'Bug/Issue' (case-insensitive)
+            if (!string.IsNullOrEmpty(ScenarioId) && ScenarioId.IndexOf("Bug/Issue", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                baseFolderName += " Bug";
+            }
             string folderName = (new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars())).Aggregate(
-                string.Format("{0} - {1}", StartingTime.ToString("yyyyMMdd_HHmmss"), ScenarioId),
+                baseFolderName,
                 (current, c) => current.Replace(c.ToString(CultureInfo.InvariantCulture), ""));
             WorkingDir = Directory.GetCurrentDirectory() + @"\" + folderName + @"\";
             _sessionFile = StartingTime.ToString("yyyyMMdd_HHmmss") + ".csv";
@@ -138,6 +144,16 @@ namespace Rapid_Reporter
             {
                 throw new InvalidDirecotoryException("A folder " + path + " already exits.");
             }
+
+            try
+            {
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception)
+            {
+                throw new InvalidDirecotoryException("A folder " + path + " could not be created.");
+            }
+        }
 
 
         // Call this when session is resumed
@@ -400,21 +416,5 @@ namespace Rapid_Reporter
             Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables done.", "Session", "info");
         }
 
-        private void CreateWorkingDir(string path)
-        {
-            if (Directory.Exists(path))
-            {
-                throw new InvalidDirecotoryException("A folder " + path + " already exits.");
-            }
-
-            try
-            {
-                Directory.CreateDirectory(path);
-            }
-            catch (Exception)
-            {
-                throw new InvalidDirecotoryException("A folder " + path + " could not be created.");
-            }
-        }
     }
 }
