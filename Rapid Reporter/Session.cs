@@ -224,9 +224,38 @@ namespace Rapid_Reporter
         }
         internal void UpdateNotes(string type, string note, string screenshot = "", string rtfNote = "")
         {
+            // Add "Bug" to folder name if this is a bug note
+            if (type == "Bug/Issue")
+            {
+                AddBugToFolderName();
+            }
             SessionNote = DateTime.Now + "," + type + ",\"" + note + "\"," + rtfNote + "\n";
             SaveToSessionNotes(SessionNote);
             Logger.Record("[UpdateNotes ss]: Note added to session log (" + screenshot + ", " + rtfNote + ")", "Session", "info");
+        }
+
+        // Appends ' Bug' to the folder name, preserving ScenarioId and timestamp, if not already present
+        private void AddBugToFolderName()
+        {
+            string trimmed = WorkingDir.TrimEnd('\\');
+            string parentDir = Path.GetDirectoryName(trimmed);
+            string folderName = Path.GetFileName(trimmed);
+            // Only append ' Bug' if not already present
+            if (!folderName.EndsWith("Bug", StringComparison.OrdinalIgnoreCase))
+            {
+                string newFolderName = folderName + " Bug";
+                string newWorkingDir = Path.Combine(parentDir, newFolderName) + "\\";
+                try
+                {
+                    Directory.Move(WorkingDir, newWorkingDir);
+                    WorkingDir = newWorkingDir;
+                    _sessionFileFull = WorkingDir + _sessionFile;
+                }
+                catch (Exception ex)
+                {
+                    Logger.Record("[AddBugToFolderName]: Could not rename folder (" + ex.Message + ")", "Session", "error");
+                }
+            }
         }
         // Save all notes on file, after every single note
         private void SaveToSessionNotes(string note)
