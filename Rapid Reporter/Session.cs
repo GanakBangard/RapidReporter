@@ -68,7 +68,21 @@ namespace Rapid_Reporter
 
         public Session()
         {
-            WorkingDir = Directory.GetCurrentDirectory() + @"\";
+            Logger.Record("[StartSession]: Session configuration starting", "Session", "info");
+
+            StartingTime = DateTime.Now; // The time the session started is used for many things, like knowing the session file name
+            WorkingDir = Directory.GetCurrentDirectory() + @"\" + StartingTime.ToString("yyyyMMdd_HHmmss") + @"\";
+            _sessionFile = StartingTime.ToString("yyyyMMdd_HHmmss") + ".csv";
+            _sessionFileFull = WorkingDir + _sessionFile; // All files should be written to a working directory -- be it current or not.
+            CreateWorkingDir(WorkingDir);
+            SaveToSessionNotes(ColumnHeaders + "\n"); // Headers of the notes table
+            //UpdateNotes("Reporter Tool Version", System.Windows.Forms.Application.ProductVersion);
+            UpdateNotes("Session Reporter", Tester);
+            UpdateNotes("Scenario ID", ScenarioId);
+            UpdateNotes("Session Charter", Charter);
+            UpdateNotes("Environment", Environment);
+
+            UpdateNotes("Versions", Versions);
         }
 
         // Call this when session is resumed
