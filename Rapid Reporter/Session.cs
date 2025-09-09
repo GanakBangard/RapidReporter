@@ -1,22 +1,40 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Globalization;
 using System.Windows;
-using System.Windows.Forms;
 using Rapid_Reporter.HTML;
-using MessageBox = System.Windows.MessageBox;
-
-// ReSharper disable EmptyGeneralCatchClause
+using System.Windows.Forms;
 
 namespace Rapid_Reporter
 {
     class Session
     {
+        // Start Session and Close Session prepare/finalize the log file
+        public void StartSession()
+        {
+            Logger.Record("[StartSession]: Session configuration starting", "Session", "info");
+
+            StartingTime = DateTime.Now; // The time the session started is used for many things, like knowing the session file name
+                                         // Folder name matches .html file naming: [timestamp] - [ScenarioId]
+            string folderName = (new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars())).Aggregate(
+                string.Format("{0} - {1}", StartingTime.ToString("yyyyMMdd_HHmmss"), ScenarioId),
+                (current, c) => current.Replace(c.ToString(CultureInfo.InvariantCulture), ""));
+            WorkingDir = Directory.GetCurrentDirectory() + @"\" + folderName + @"\";
+            _sessionFile = StartingTime.ToString("yyyyMMdd_HHmmss") + ".csv";
+            _sessionFileFull = WorkingDir + _sessionFile; // All files should be written to a working directory -- be it current or not.
+            CreateWorkingDir(WorkingDir);
+            SaveToSessionNotes(ColumnHeaders + "\n"); // Headers of the notes table
+                                                      //UpdateNotes("Reporter Tool Version", System.Windows.Forms.Application.ProductVersion);
+            UpdateNotes("Session Reporter", Tester);
+            UpdateNotes("Scenario ID", ScenarioId);
+            UpdateNotes("Session Charter", Charter);
+            UpdateNotes("Environment", Environment);
+            UpdateNotes("Versions", Versions);
+        }
         /** Variables **/
         /***************/
-        
         // This is configurable from inside the application:
         // Session characteristics:
         public DateTime StartingTime;   // Time started, starts when moving from 'charter' to 'notes'.
@@ -29,11 +47,11 @@ namespace Rapid_Reporter
         public string Charter = "";      // Configured in runtime.
         public string Environment = "";      // Configured in runtime.
         public string Versions = "";      // Configured in runtime.
-        // The types of comments. This can be overriden from command line, so every person can use his own terminology or language
+                                          // The types of comments. This can be overriden from command line, so every person can use his own terminology or language
         public string[] NoteTypes = { "Prerequisite", "Test", "Success", "Bug/Issue", "Note", "Follow Up", "Summary" };
 
         // Session files:
-        public string WorkingDir = Directory.GetCurrentDirectory() + @"\";  // Directory to write the session to
+        public string WorkingDir;  // Directory to write the session to
         private string _sessionFile;      // File to write the session to
         private string _sessionFileFull;  // workingDir + sessionFile
         public string SessionNote = "";         // Latest note only
@@ -45,46 +63,25 @@ namespace Rapid_Reporter
         public SessionStartingStage CurrentStage = SessionStartingStage.Tester; // This is used only in the beginning, in order to receive the tester name and charter text
 
         public bool createHTML = true;
-        /** Sessions **/
-        /**************/
+        private TimeSpan _totalPaused = TimeSpan.Zero;
+        private DateTime? _pauseStartTime = null;
 
-        // Start Session and Close Session prepare/finalize the log file
-        public void StartSession()
+        public Session()
         {
-            Logger.Record("[StartSession]: Session configuration starting", "Session", "info");
-
-            StartingTime = DateTime.Now; // The time the session started is used for many things, like knowing the session file name
-            WorkingDir = Directory.GetCurrentDirectory() + @"\" + StartingTime.ToString("yyyyMMdd_HHmmss") + @"\";
-            _sessionFile = StartingTime.ToString("yyyyMMdd_HHmmss") + ".csv";
-            _sessionFileFull = WorkingDir + _sessionFile; // All files should be written to a working directory -- be it current or not.
-            CreateWorkingDir(WorkingDir);
-            SaveToSessionNotes(ColumnHeaders + "\n"); // Headers of the notes table
-            //UpdateNotes("Reporter Tool Version", System.Windows.Forms.Application.ProductVersion);
-            UpdateNotes("Session Reporter", Tester);
-            UpdateNotes("Scenario ID", ScenarioId);
-            UpdateNotes("Session Charter", Charter);
-            UpdateNotes("Environment", Environment);
-            UpdateNotes("Versions", Versions);
+            WorkingDir = Directory.GetCurrentDirectory() + @"\";
         }
-        
-        private void CreateWorkingDir(string path)
-        {
-            if (Directory.Exists(path))
-            {
-                throw new InvalidDirecotoryException("A folder " + path + " already exits.");
-            }
 
-            try
+        // Call this when session is resumed
+        public void ResumeSessionFromPause()
+        {
+            if (_pauseStartTime != null)
             {
-                Directory.CreateDirectory(path);
-            }
-            catch (Exception)
-            {
-                throw new InvalidDirecotoryException("A folder " + path + " could not be created.");
+                _totalPaused += (DateTime.Now - _pauseStartTime.Value);
+                _pauseStartTime = null;
             }
         }
 
-        internal bool ResumeSession()
+        public bool ResumeSession()
         {
             Logger.Record("[ResumeSession]: Session configuration starting", "Session", "info");
 
@@ -96,7 +93,7 @@ namespace Rapid_Reporter
                 string.IsNullOrWhiteSpace(ScenarioId)) return false;
             _sessionFile = Path.GetFileName(csvFile);
             WorkingDir = Path.GetDirectoryName(csvFile) + @"\";
-            _sessionFileFull = csvFile; 
+            _sessionFileFull = csvFile;
             return true;
         }
 
@@ -107,7 +104,13 @@ namespace Rapid_Reporter
             // Why this if? We will only add the 'end session' note if we were past the charter step.
             if (!String.Equals(Versions, ""))
             {
-                TimeSpan duration = DateTime.Now - StartingTime;
+                // If session is currently paused, add the last paused duration
+                if (_pauseStartTime != null)
+                {
+                    _totalPaused += (DateTime.Now - _pauseStartTime.Value);
+                    _pauseStartTime = null;
+                }
+                TimeSpan duration = (DateTime.Now - StartingTime) - _totalPaused;
                 UpdateNotes("Session End. Duration",
                             duration.Hours.ToString(CultureInfo.InvariantCulture).PadLeft(2, '0') + ":" +
                             duration.Minutes.ToString(CultureInfo.InvariantCulture).PadLeft(2, '0') + ":" +
@@ -145,7 +148,8 @@ namespace Rapid_Reporter
             bool exDrRetry;
 
             do
-            { exDrRetry = false;
+            {
+                exDrRetry = false;
                 try
                 {
                     File.AppendAllText(_sessionFileFull, note, Encoding.UTF8);
@@ -214,14 +218,14 @@ namespace Rapid_Reporter
                     File.Delete(htmlFileFull);
                     var htmlTop = string.Format("{0}{1}{2}{3}{4}{5}{1}{6}", (object)Htmlstrings.AHtmlHead,
                         (object)title, (object)Htmlstrings.BTitleOut, (object)Htmlstrings.CStyle,
-                        (object) Htmlstrings.DJavascript, (object) Htmlstrings.EBody, (object) Htmlstrings.GTable);
+                        (object)Htmlstrings.DJavascript, (object)Htmlstrings.EBody, (object)Htmlstrings.GTable);
                     var topNotes = "";
                     var bottomNotes = "";
 
                     foreach (var line in File.ReadAllLines(csvFileFull, Encoding.UTF8))
-					{
+                    {
                         if ("" == line) continue;
-                        var note = ""; 
+                        var note = "";
                         var thisLine = line.Split(',');
                         if (thisLine.Length > 2)
                         {
@@ -251,16 +255,16 @@ namespace Rapid_Reporter
                             }
                         }
 
-					    if (thisLine[1] == "Type" || thisLine[1] == "Session Reporter" ||
-					        (thisLine[1] == "Scenario ID" || thisLine[1] == "Session Charter") ||
-					        (thisLine[1] == "Environment" || thisLine[1] == "Versions" || thisLine[1] == "Summary"))
-					    {
-					        topNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
-					    }
-					    else
-					    {
-					        bottomNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
-					    }
+                        if (thisLine[1] == "Type" || thisLine[1] == "Session Reporter" ||
+                            (thisLine[1] == "Scenario ID" || thisLine[1] == "Session Charter") ||
+                            (thisLine[1] == "Environment" || thisLine[1] == "Versions" || thisLine[1] == "Summary"))
+                        {
+                            topNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
+                        }
+                        else
+                        {
+                            bottomNotes += BuildTableRow(t, thisLine[1], thisLine[0], note);
+                        }
                         t = "td";
                     }
                     topNotes = topNotes + BuildTableRow("td", "", "", "");
@@ -269,7 +273,7 @@ namespace Rapid_Reporter
                                      Htmlstrings.JTableEnd, htmlFileBufferPopups, Htmlstrings.MHtmlEnd);
 
                     File.WriteAllText(htmlFileFull, output, Encoding.UTF8);
-                    MessageBox.Show("The HTML was created successfully!\nFile created: " + htmlFileFull, "HTML Conversion Successful!", MessageBoxButton.OK, MessageBoxImage.Information);
+
                 }
                 catch (Exception ex)
                 {
@@ -280,10 +284,9 @@ namespace Rapid_Reporter
             Logger.Record("[CSV2HTML]: HTML Report built, done.", "Session", "info");
         }
 
-        private void LoadCsvIntoSession(string csvFile)
+        public void LoadCsvIntoSession(string csvFile)
         {
-            Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables", "Session", "info");
-
+            Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables...", "Session", "info");
             bool exDrRetry;
             do
             {
@@ -324,6 +327,23 @@ namespace Rapid_Reporter
                 }
             } while (exDrRetry);
             Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables done.", "Session", "info");
+        }
+
+        private void CreateWorkingDir(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                throw new InvalidDirecotoryException("A folder " + path + " already exits.");
+            }
+
+            try
+            {
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception)
+            {
+                throw new InvalidDirecotoryException("A folder " + path + " could not be created.");
+            }
         }
     }
 }

@@ -24,7 +24,8 @@ namespace Rapid_Reporter.Forms
 {
     // Controls the main Widget
     public partial class SmWidget
-    { 
+    {
+        // Timer menu items and UI elements are referenced directly by their XAML names (t0, t30, t60, t90, t120, ProgressBackground, timeralarm)
         // Session Notes variables
         private int _currentNoteType;		// The actual types are controlled by the Session class.
         private int _prevNoteType; private int _nextNoteType; // Used for the hints about the next note up or down.
@@ -50,7 +51,7 @@ namespace Rapid_Reporter.Forms
 
         // These two classes are external.
         //  We share classes and data all around. This coupling will be a weak spot if app gets complex.
-        Session _currentSession  = new Session();    // The session managing class
+        Session _currentSession = new Session();    // The session managing class
         readonly PlainTextNote _ptn = new PlainTextNote();                // The enhanced note window
 
         /** Starting Process **/
@@ -115,8 +116,9 @@ namespace Rapid_Reporter.Forms
                 "No:\tClose the app without creating a html file.\n",
                 "Cancel:\tDon't close the app."
             };
-            MessageBoxResult result = System.Windows.MessageBox.Show(String.Join("",msg), "User Confirmation", MessageBoxButton.YesNoCancel);
-            if (result == MessageBoxResult.Yes) {
+            MessageBoxResult result = System.Windows.MessageBox.Show(String.Join("", msg), "User Confirmation", MessageBoxButton.YesNoCancel);
+            if (result == MessageBoxResult.Yes)
+            {
                 Logger.Record("[CloseButton_Click]: Closing Form (Yes button was clicked)...", "SMWidget", "info");
                 Close();
             }
@@ -173,6 +175,7 @@ namespace Rapid_Reporter.Forms
         private bool isIMEinput = false;
         private int enterKeyBuffer { get; set; } //buffer for ignore Enter key at IME input
 
+
         private void OnPreviewTextInput(object sender, TextCompositionEventArgs e)
         {
             if (isIMEinput)
@@ -221,7 +224,7 @@ namespace Rapid_Reporter.Forms
         private void NoteContent_KeyUp_launch(object sender, KeyEventArgs e)
         {
             var notesLenght = _currentSession.NoteTypes.Length - 1;
-            
+
             // Up and Down cycles through the note types
             if ((e.Key == Key.Down || e.Key == Key.Up) && _currentStage == Session.SessionStartingStage.Notes)
             {
@@ -256,61 +259,63 @@ namespace Rapid_Reporter.Forms
                 nextType.Text = "? " + _currentSession.NoteTypes[_nextNoteType] + ":";
             }
             else switch (e.Key)
-            {
-                // Enter keys accept the note into the report
-                case Key.Enter:
-                    if (e.Key == Key.Enter && NoteContent.Text.Trim().Length != 0)
-                    {
-                        Logger.Record("\t[NoteContent_KeyUp]: Enter pressed...", "SMWidget", "info");
-                        switch (_currentStage)
+                {
+                    // Enter keys accept the note into the report
+                    case Key.Enter:
+                        if (e.Key == Key.Enter && NoteContent.Text.Trim().Length != 0)
                         {
-                            case Session.SessionStartingStage.Tester:
-                                _currentSession.Tester = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
-                                StateMove(Session.SessionStartingStage.ScenarioId);
-                                break;
-                            case Session.SessionStartingStage.ScenarioId:
-                                _currentSession.ScenarioId = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
-                                StateMove(Session.SessionStartingStage.Charter);
-                                break;
-                            case Session.SessionStartingStage.Charter:
-                                _currentSession.Charter = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
-                                StateMove(Session.SessionStartingStage.Environment);
-                                break;
-                            case Session.SessionStartingStage.Environment:
-                                _currentSession.Environment = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
-                                StateMove(Session.SessionStartingStage.Versions);
-                                break;
-                            case Session.SessionStartingStage.Versions:
-                                _currentSession.Versions = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
-                                StateMove(Session.SessionStartingStage.Notes);
-                                break;
-                            default:
-                                {
-                                    // What we do when adding a note:
-                                    //  - 1) We add to the session notes
-                                    //  - 2) We add to the history context menu
-                                    //  - 3) We clear notes and attachments to make place for new ones
-                                    /*1*/
-                                    _currentSession.UpdateNotes(_currentNoteType, NoteContent.Text.Replace("\"", "''").Replace(",", ";").Trim(), _screenshotName, PlainTextNoteName);
-                                    /*2*/   var item = new MenuItem {Header = NoteContent.Text};
-                                    item.Click += delegate { GetHistory(item.Header.ToString()); };
-                                    NoteHistory.Items.Add(item);
-                                    NoteHistory.Visibility = Visibility.Visible;
-                                    Logger.Record("\t\t[NoteContent_KeyUp]: Note added.", "SMWidget", "info");
-                                }
-                                break;
+                            Logger.Record("\t[NoteContent_KeyUp]: Enter pressed...", "SMWidget", "info");
+                            switch (_currentStage)
+                            {
+                                case Session.SessionStartingStage.Tester:
+                                    _currentSession.Tester = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
+                                    StateMove(Session.SessionStartingStage.ScenarioId);
+                                    break;
+                                case Session.SessionStartingStage.ScenarioId:
+                                    _currentSession.ScenarioId = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
+                                    StateMove(Session.SessionStartingStage.Charter);
+                                    break;
+                                case Session.SessionStartingStage.Charter:
+                                    _currentSession.Charter = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
+                                    StateMove(Session.SessionStartingStage.Environment);
+                                    break;
+                                case Session.SessionStartingStage.Environment:
+                                    _currentSession.Environment = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
+                                    StateMove(Session.SessionStartingStage.Versions);
+                                    break;
+                                case Session.SessionStartingStage.Versions:
+                                    _currentSession.Versions = NoteContent.Text.Replace("\"", "''").Replace(",", "").Replace(";", "").Trim();
+                                    StateMove(Session.SessionStartingStage.Notes);
+                                    break;
+                                default:
+                                    {
+                                        // What we do when adding a note:
+                                        //  - 1) We add to the session notes
+                                        //  - 2) We add to the history context menu
+                                        //  - 3) We clear notes and attachments to make place for new ones
+                                        /*1*/
+                                        _currentSession.UpdateNotes(_currentNoteType, NoteContent.Text.Replace("\"", "''").Replace(",", ";").Trim(), _screenshotName, PlainTextNoteName);
+                                        /*2*/
+                                        var item = new MenuItem { Header = NoteContent.Text };
+                                        item.Click += delegate { GetHistory(item.Header.ToString()); };
+                                        NoteHistory.Items.Add(item);
+                                        NoteHistory.Visibility = Visibility.Visible;
+                                        Logger.Record("\t\t[NoteContent_KeyUp]: Note added.", "SMWidget", "info");
+                                    }
+                                    break;
+                            }
+                            /*3*/
+                            ClearNote();
                         }
-                        /*3*/ ClearNote();
-                    }
-                    break;
-                // Esc key clears the note field
-                case Key.Escape:
-                    Logger.Record("[NoteContent_KeyUp]: (note aborted)", "SMWidget", "info");
-                    ClearNote();
-                    break;
-            }
+                        break;
+                    // Esc key clears the note field
+                    case Key.Escape:
+                        Logger.Record("[NoteContent_KeyUp]: (note aborted)", "SMWidget", "info");
+                        ClearNote();
+                        break;
+                }
         }
-        
+
         // The function below will change the visuals of the application at the different stages (tester/charter/notes state based behavior)
         private void StateMove(Session.SessionStartingStage newStage, bool skipStartSession = false)
         {
@@ -320,7 +325,7 @@ namespace Rapid_Reporter.Forms
             {
                 case Session.SessionStartingStage.Tester:
                     NoteType.Text = "Reporter:";
-                    prevType.Text = ""; 
+                    prevType.Text = "";
                     nextType.Text = "";
                     _prevNoteType = 1;
                     _nextNoteType = _currentSession.NoteTypes.Length - 1;
@@ -403,13 +408,61 @@ namespace Rapid_Reporter.Forms
         private void ProgressTimer_Click(object sender, RoutedEventArgs e)
         {
             Logger.Record("[ProgressTimer_Click]: Time to end: " + sender, "SMWidget", "info");
-            if (sender.ToString().Contains("1 min")) ProgressGo(1);
-            if (sender.ToString().Contains("3 min")) ProgressGo(3);
-            if (sender.ToString().Contains("120 min")) ProgressGo(120);
-            if (sender.ToString().Contains("90 min")) { ProgressGo(90); t90.IsChecked=true; }
-            if (sender.ToString().Contains("60 min")) ProgressGo(60);
-            if (sender.ToString().Contains("30 min")) ProgressGo(30);
-            if (sender.ToString().Contains("Stop")) ProgressGo(0);
+            if (sender.ToString().Contains("1 min"))
+            {
+                ProgressGo(1);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("3 min"))
+            {
+                ProgressGo(3);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("120 min"))
+            {
+                ProgressGo(120);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("90 min"))
+            {
+                ProgressGo(90);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("60 min"))
+            {
+                ProgressGo(60);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("30 min"))
+            {
+                ProgressGo(30);
+                RecordSessionResumedIfPaused();
+            }
+            if (sender.ToString().Contains("Stop"))
+            {
+                ProgressGo(0);
+                RecordSessionPaused();
+            }
+            // End of ProgressTimer_Click
+        }
+        private bool _sessionPaused = false;
+        private void RecordSessionPaused()
+        {
+            if (!_sessionPaused)
+            {
+                _currentSession.UpdateNotes("Note", "Session paused (timer stopped)");
+                _sessionPaused = true;
+            }
+        }
+
+        // Records a note that the session is resumed if it was paused
+        private void RecordSessionResumedIfPaused()
+        {
+            if (_sessionPaused)
+            {
+                _currentSession.UpdateNotes("Note", "Session resumed (timer started)");
+                _sessionPaused = false;
+            }
         }
         private void ProgressGo(int time) // time is received in minutes
         {
@@ -434,12 +487,12 @@ namespace Rapid_Reporter.Forms
                 //              Elapsed Time
                 //      ------------------------------ == Percentage of time elapsed
                 //      Elapsed Time + Additional Time
-                ProgressBackground.Value = 100*(
+                ProgressBackground.Value = 100 * (
                     ((DateTime.Now - _currentSession.StartingTime).TotalSeconds) /
                     (((DateTime.Now - _currentSession.StartingTime).TotalSeconds) + _currentSession.Duration)
                     );
                 Logger.Record("\t[ProgressGo]: Time calculation. Value: " + ProgressBackground.Value + "; Elapsed: " + (DateTime.Now - _currentSession.StartingTime).TotalSeconds + "; duration: " + _currentSession.Duration, "SMWidget", "info");
-                
+
                 // In order to reposition the timer at the beginning of the progress bar at every change, one should stop it before restarting;
                 //  StopTimers();
                 //
@@ -517,21 +570,21 @@ namespace Rapid_Reporter.Forms
                 Logger.Record("[ScreenShot_Click]: Cancelled screenshot", "SMWidget", "info");
                 return;
             }
-            AddScreenshot2Note(imgOut);                                 
+            AddScreenshot2Note(imgOut);
             Logger.Record("[ScreenShot_Click]: Captured " + _screenshotName + ", edit: " + edit, "SMWidget", "info");
-            if (edit)                                                                   
-            {                                                                           
+            if (edit)
+            {
                 var paint = new Process
-                    {
-                        StartInfo =
+                {
+                    StartInfo =
                             {
                                 FileName = "mspaint.exe",
                                 Arguments = "\"" + _currentSession.WorkingDir + _screenshotName + "\""
                             }
-                    };                                          
-                paint.Start();                                                                          
+                };
+                paint.Start();
             }
-            if (edit || !direct) WindowState = WindowState.Normal; 
+            if (edit || !direct) WindowState = WindowState.Normal;
         }
 
         // Adding attached screenshot have dedicated functions that deal with the visual
@@ -559,7 +612,7 @@ namespace Rapid_Reporter.Forms
             } while (exDrRetry);
 
             // Put a visual effect to remember the tester there's an image on the attachment barrel
-            var effect = new BevelBitmapEffect {BevelWidth = 2, EdgeProfile = EdgeProfile.BulgedUp};
+            var effect = new BevelBitmapEffect { BevelWidth = 2, EdgeProfile = EdgeProfile.BulgedUp };
             ScreenShot.BitmapEffect = effect;
         }
 
@@ -577,7 +630,7 @@ namespace Rapid_Reporter.Forms
         private void OnHotKeyHandler(HotKey hotKey)
         {
             Logger.Record("[OnHotKeyHandler]: HotKey Detected!", "SMWidget", "info");
-            
+
             // If the user keeps the key pressed, HotKey requests will queue up and lag
             //  With this condition we break the chain, as the requests that come after stopping
             //  to press are ifnored.
@@ -640,7 +693,7 @@ namespace Rapid_Reporter.Forms
             _screenshotName = "";    // New pic attachment
             PlainTextNoteName = "";       // New note attachment (RTF note area content is left intact!)
             // Clear visual effects (screenshots are all always saved anyway)
-            var effect = new BevelBitmapEffect {BevelWidth = 0, EdgeProfile = EdgeProfile.BulgedUp};
+            var effect = new BevelBitmapEffect { BevelWidth = 0, EdgeProfile = EdgeProfile.BulgedUp };
             ScreenShot.BitmapEffect = effect;
             RTFNoteBtn.BitmapEffect = effect;
         }
@@ -782,6 +835,6 @@ namespace Rapid_Reporter.Forms
             Updater.ManualCheckVersion();
         }
 
-        
+
     }
 }
