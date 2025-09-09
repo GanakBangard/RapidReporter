@@ -11,6 +11,52 @@ namespace Rapid_Reporter
 {
     class Session
     {
+        // Create ZIP file containing CSV, HTML (if created), and screenshots
+        public void CreateSessionZip()
+        {
+            try
+            {
+                var filesToZip = new System.Collections.Generic.List<string>();
+                // Add CSV file
+                filesToZip.Add(_sessionFileFull);
+                // Add HTML file if created
+                string htmlFile = null;
+                if (createHTML)
+                {
+                    // Try to find the HTML file in the working directory
+                    var htmlFiles = System.IO.Directory.GetFiles(WorkingDir, "*.htm*");
+                    if (htmlFiles.Length > 0)
+                    {
+                        htmlFile = htmlFiles[0];
+                        filesToZip.Add(htmlFile);
+                    }
+                }
+                // Add screenshots (PNG and JPG files in WorkingDir)
+                var pngFiles = System.IO.Directory.GetFiles(WorkingDir, "*.png");
+                var jpgFiles = System.IO.Directory.GetFiles(WorkingDir, "*.jpg");
+                filesToZip.AddRange(pngFiles);
+                filesToZip.AddRange(jpgFiles);
+                // Prepare ZIP file path with timestamp
+                string zipFile = System.IO.Path.Combine(WorkingDir, StartingTime.ToString("yyyyMMdd_HHmmss") + ".zip");
+                // Build command line for 7-Zip
+                string args = "a \"" + zipFile + "\" " + string.Join(" ", filesToZip.ConvertAll(f => "\"" + f + "\""));
+                var process = new System.Diagnostics.Process();
+                process.StartInfo.FileName = SevenZipPath;
+                process.StartInfo.Arguments = args;
+                process.StartInfo.CreateNoWindow = true;
+                process.StartInfo.UseShellExecute = false;
+                process.Start();
+                process.WaitForExit();
+                Logger.Record("[CreateSessionZip]: ZIP file created at " + zipFile, "Session", "info");
+            }
+            catch (Exception ex)
+            {
+                Logger.Record("[CreateSessionZip]: Failed to create ZIP file: " + ex.Message, "Session", "error");
+            }
+        }
+        /** Variables **/
+        /***************/
+
         // Start Session and Close Session prepare/finalize the log file
         public void StartSession()
         {
@@ -55,6 +101,8 @@ namespace Rapid_Reporter
         private string _sessionFile;      // File to write the session to
         private string _sessionFileFull;  // workingDir + sessionFile
         public string SessionNote = "";         // Latest note only
+        // Path to 7-Zip executable
+        public string SevenZipPath = @"C:\Program Files\7-Zip\7z.exe";
 
         // Session State Based Behavior:
         //  The application iterates: tester, charter, notes.
@@ -84,6 +132,13 @@ namespace Rapid_Reporter
 
             UpdateNotes("Versions", Versions);
         }
+        private void CreateWorkingDir(string path)
+        {
+            if (Directory.Exists(path))
+            {
+                throw new InvalidDirecotoryException("A folder " + path + " already exits.");
+            }
+
 
         // Call this when session is resumed
         public void ResumeSessionFromPause()
@@ -134,6 +189,8 @@ namespace Rapid_Reporter
                 {
                     Csv2Html(_sessionFileFull, false);
                 }
+                // After HTML creation (or not), create ZIP file with screenshot, CSV, and HTML
+                CreateSessionZip();
             }
 
             Logger.Record("[CloseSession]: ...Session closed", "Session", "info");
