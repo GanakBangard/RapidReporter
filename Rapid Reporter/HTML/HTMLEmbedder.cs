@@ -19,28 +19,31 @@ namespace Rapid_Reporter.HTML
 
         internal static string BuildPopUp_Img(int imgCount)
         {
-            return
-                string.Format(
-                    "<div id='imgdiv{0}' style=\"{1}\" onclick=\"HideImgEle('imgdiv{0}')\">Click here to hide...<br><br><img id='imgbig{0}'></div>",
-                    imgCount, "position: absolute; top: 40px; left: 5px; right: 0; bottom: 0; display:none;");
+            return string.Format(
+                "<div id='imgdiv{0}' style=\"position: absolute; top: 40px; left: 5px; right: 0; bottom: 0; display: none;\" onclick=\"HideImgEle('imgdiv{0}')\">" +
+                "Click here to hide...<br><br><img id='imgbig{0}'></div>",
+                imgCount);
         }
+
 
         internal static string BuildSessionRow_PTNote(int noteCount)
         {
-            return
-                string.Format("<a href=\"#\" onclick=\"ShowPlaintextNote('ptndiv{0}');\">Click to show note...</a>{1}",
-                    noteCount, "&nbsp;");
+            return string.Format(
+                "<a href=\"#\" onclick=\"ShowPlaintextNote('ptndiv{0}');\">Click to show note...</a>&nbsp;",
+                noteCount);
         }
+
 
         internal static string BuildPopUp_PTNote(int noteCount, string noteFile)
         {
             var plainTextNote = GetPlainTextNote(noteFile);
-            return
-                string.Format(
-                    "<div id='ptndiv{0}' style=\"{1}\"><div><a href=\"#\" onclick=\"HidePlaintextNote('ptndiv{0}')\">Click here to hide...</a></div><pre>{2}</pre></div>",
-                    noteCount, "position: absolute; top: 40px; left: 5px; right: 0; bottom: 0; display:none;",
-                    plainTextNote);
+            return string.Format(
+                "<div id='ptndiv{0}' style=\"position: absolute; top: 40px; left: 5px; right: 0; bottom: 0; display: none;\">" +
+                "<div><a href=\"#\" onclick=\"HidePlaintextNote('ptndiv{0}')\">Click here to hide...</a></div>" +
+                "<pre>{1}</pre></div>",
+                noteCount, plainTextNote);
         }
+
 
         internal static string MakeImageSrcData(string filename)
         {
