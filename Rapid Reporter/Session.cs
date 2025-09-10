@@ -231,6 +231,21 @@ namespace Rapid_Reporter
             }
             SessionNote = DateTime.Now + "," + type + ",\"" + note + "\"," + rtfNote + "\n";
             SaveToSessionNotes(SessionNote);
+
+            // icon change  - 
+            try
+            {
+                string desktopIniPath = Path.Combine(WorkingDir, "desktop.ini");
+                File.WriteAllText(desktopIniPath,
+                    "[.ShellClassInfo]\r\nIconResource=%SystemRoot%\\System32\\SHELL32.dll,234\r\n");
+                File.SetAttributes(desktopIniPath, FileAttributes.Hidden | FileAttributes.System);
+                File.SetAttributes(WorkingDir, File.GetAttributes(WorkingDir) | FileAttributes.System);
+            }
+            catch (Exception ex)
+            {
+                Logger.Record("[UpdateNotes]: Failed to set folder icon - " + ex.Message, "Session", "error");
+            }
+
             Logger.Record("[UpdateNotes ss]: Note added to session log (" + screenshot + ", " + rtfNote + ")", "Session", "info");
         }
 
