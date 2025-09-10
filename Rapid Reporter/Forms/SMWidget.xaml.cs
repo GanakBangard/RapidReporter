@@ -703,7 +703,12 @@ namespace Rapid_Reporter.Forms
         {
             Logger.Record("[SetWorkingDir] Setting directory to " + newPath, "SMWidget", "info");
             if (!newPath.EndsWith(@"\")) newPath += @"\"; // Add the trailing 'slash' to the directory
-            _ptn.WorkingDir = _currentSession.WorkingDir = newPath; // the workingDir needs to be the same for all files!
+            // Always update the working directory for both the session and the PlainTextNote window
+            _currentSession.WorkingDir = newPath;
+            if (_ptn != null)
+            {
+                _ptn.WorkingDir = newPath;
+            }
             //FolderName.Header = (50 < _currentSession.WorkingDir.Length) ? "..." + _currentSession.WorkingDir.Substring(_currentSession.WorkingDir.Length - 47) : _currentSession.WorkingDir;
         }
 
