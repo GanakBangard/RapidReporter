@@ -1,92 +1,22 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Globalization;
 using System.Windows;
-using Rapid_Reporter.HTML;
 using System.Windows.Forms;
+using Rapid_Reporter.HTML;
+using MessageBox = System.Windows.MessageBox;
+
+// ReSharper disable EmptyGeneralCatchClause
 
 namespace Rapid_Reporter
 {
     class Session
     {
-        // Create ZIP file containing CSV, HTML (if created), and screenshots
-        public void CreateSessionZip()
-        {
-            try
-            {
-                var filesToZip = new System.Collections.Generic.List<string>();
-                // Add CSV file
-                filesToZip.Add(_sessionFileFull);
-                // Add HTML file if created
-                string htmlFile = null;
-                if (createHTML)
-                {
-                    // Try to find the HTML file in the working directory
-                    var htmlFiles = System.IO.Directory.GetFiles(WorkingDir, "*.htm*");
-                    if (htmlFiles.Length > 0)
-                    {
-                        htmlFile = htmlFiles[0];
-                        filesToZip.Add(htmlFile);
-                    }
-                }
-                // Add screenshots (PNG and JPG files in WorkingDir)
-                var pngFiles = System.IO.Directory.GetFiles(WorkingDir, "*.png");
-                var jpgFiles = System.IO.Directory.GetFiles(WorkingDir, "*.jpg");
-                filesToZip.AddRange(pngFiles);
-                filesToZip.AddRange(jpgFiles);
-                // Prepare ZIP file path with timestamp
-                string zipFile = System.IO.Path.Combine(WorkingDir, StartingTime.ToString("yyyyMMdd_HHmmss") + ".zip");
-                // Build command line for 7-Zip
-                string args = "a \"" + zipFile + "\" " + string.Join(" ", filesToZip.ConvertAll(f => "\"" + f + "\""));
-                var process = new System.Diagnostics.Process();
-                process.StartInfo.FileName = SevenZipPath;
-                process.StartInfo.Arguments = args;
-                process.StartInfo.CreateNoWindow = true;
-                process.StartInfo.UseShellExecute = false;
-                process.Start();
-                process.WaitForExit();
-                Logger.Record("[CreateSessionZip]: ZIP file created at " + zipFile, "Session", "info");
-            }
-            catch (Exception ex)
-            {
-                Logger.Record("[CreateSessionZip]: Failed to create ZIP file: " + ex.Message, "Session", "error");
-            }
-        }
         /** Variables **/
         /***************/
 
-        // Start Session and Close Session prepare/finalize the log file
-        public void StartSession()
-        {
-            Logger.Record("[StartSession]: Session configuration starting", "Session", "info");
-
-            StartingTime = DateTime.Now; // The time the session started is used for many things, like knowing the session file name
-                                         // Folder name matches .html file naming: [timestamp] - [ScenarioId]
-            string baseFolderName = string.Format("{0} - {1}", StartingTime.ToString("yyyyMMdd_HHmmss"), ScenarioId);
-            // Append 'Bug' if ScenarioId contains 'Bug/Issue' (case-insensitive)
-            if (!string.IsNullOrEmpty(ScenarioId) && ScenarioId.IndexOf("Bug/Issue", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                baseFolderName += " Bug";
-            }
-            string folderName = (new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars())).Aggregate(
-                baseFolderName,
-                (current, c) => current.Replace(c.ToString(CultureInfo.InvariantCulture), ""));
-            WorkingDir = Directory.GetCurrentDirectory() + @"\" + folderName + @"\";
-            _sessionFile = StartingTime.ToString("yyyyMMdd_HHmmss") + ".csv";
-            _sessionFileFull = WorkingDir + _sessionFile; // All files should be written to a working directory -- be it current or not.
-            CreateWorkingDir(WorkingDir);
-            SaveToSessionNotes(ColumnHeaders + "\n"); // Headers of the notes table
-                                                      //UpdateNotes("Reporter Tool Version", System.Windows.Forms.Application.ProductVersion);
-            UpdateNotes("Session Reporter", Tester);
-            UpdateNotes("Scenario ID", ScenarioId);
-            UpdateNotes("Session Charter", Charter);
-            UpdateNotes("Environment", Environment);
-            UpdateNotes("Versions", Versions);
-        }
-        /** Variables **/
-        /***************/
         // This is configurable from inside the application:
         // Session characteristics:
         public DateTime StartingTime;   // Time started, starts when moving from 'charter' to 'notes'.
@@ -99,16 +29,14 @@ namespace Rapid_Reporter
         public string Charter = "";      // Configured in runtime.
         public string Environment = "";      // Configured in runtime.
         public string Versions = "";      // Configured in runtime.
-                                          // The types of comments. This can be overriden from command line, so every person can use his own terminology or language
+        // The types of comments. This can be overriden from command line, so every person can use his own terminology or language
         public string[] NoteTypes = { "Prerequisite", "Test", "Success", "Bug/Issue", "Note", "Follow Up", "Summary" };
 
         // Session files:
-        public string WorkingDir;  // Directory to write the session to
+        public string WorkingDir = Directory.GetCurrentDirectory() + @"\";  // Directory to write the session to
         private string _sessionFile;      // File to write the session to
         private string _sessionFileFull;  // workingDir + sessionFile
         public string SessionNote = "";         // Latest note only
-        // Path to 7-Zip executable
-        public string SevenZipPath = @"C:\Program Files\7-Zip\7z.exe";
 
         // Session State Based Behavior:
         //  The application iterates: tester, charter, notes.
@@ -117,10 +45,11 @@ namespace Rapid_Reporter
         public SessionStartingStage CurrentStage = SessionStartingStage.Tester; // This is used only in the beginning, in order to receive the tester name and charter text
 
         public bool createHTML = true;
-        private TimeSpan _totalPaused = TimeSpan.Zero;
-        private DateTime? _pauseStartTime = null;
+        /** Sessions **/
+        /**************/
 
-        public Session()
+        // Start Session and Close Session prepare/finalize the log file
+        public void StartSession()
         {
             Logger.Record("[StartSession]: Session configuration starting", "Session", "info");
 
@@ -135,9 +64,9 @@ namespace Rapid_Reporter
             UpdateNotes("Scenario ID", ScenarioId);
             UpdateNotes("Session Charter", Charter);
             UpdateNotes("Environment", Environment);
-
             UpdateNotes("Versions", Versions);
         }
+
         private void CreateWorkingDir(string path)
         {
             if (Directory.Exists(path))
@@ -155,18 +84,7 @@ namespace Rapid_Reporter
             }
         }
 
-
-        // Call this when session is resumed
-        public void ResumeSessionFromPause()
-        {
-            if (_pauseStartTime != null)
-            {
-                _totalPaused += (DateTime.Now - _pauseStartTime.Value);
-                _pauseStartTime = null;
-            }
-        }
-
-        public bool ResumeSession()
+        internal bool ResumeSession()
         {
             Logger.Record("[ResumeSession]: Session configuration starting", "Session", "info");
 
@@ -189,13 +107,7 @@ namespace Rapid_Reporter
             // Why this if? We will only add the 'end session' note if we were past the charter step.
             if (!String.Equals(Versions, ""))
             {
-                // If session is currently paused, add the last paused duration
-                if (_pauseStartTime != null)
-                {
-                    _totalPaused += (DateTime.Now - _pauseStartTime.Value);
-                    _pauseStartTime = null;
-                }
-                TimeSpan duration = (DateTime.Now - StartingTime) - _totalPaused;
+                TimeSpan duration = DateTime.Now - StartingTime;
                 UpdateNotes("Session End. Duration",
                             duration.Hours.ToString(CultureInfo.InvariantCulture).PadLeft(2, '0') + ":" +
                             duration.Minutes.ToString(CultureInfo.InvariantCulture).PadLeft(2, '0') + ":" +
@@ -205,8 +117,6 @@ namespace Rapid_Reporter
                 {
                     Csv2Html(_sessionFileFull, false);
                 }
-                // After HTML creation (or not), create ZIP file with screenshot, CSV, and HTML
-                CreateSessionZip();
             }
 
             Logger.Record("[CloseSession]: ...Session closed", "Session", "info");
@@ -224,38 +134,25 @@ namespace Rapid_Reporter
         }
         internal void UpdateNotes(string type, string note, string screenshot = "", string rtfNote = "")
         {
-            // Add "Bug" to folder name if this is a bug note
-            if (type == "Bug/Issue")
-            {
-                AddBugToFolderName();
-            }
             SessionNote = DateTime.Now + "," + type + ",\"" + note + "\"," + rtfNote + "\n";
             SaveToSessionNotes(SessionNote);
-            Logger.Record("[UpdateNotes ss]: Note added to session log (" + screenshot + ", " + rtfNote + ")", "Session", "info");
-        }
-
-        // Appends ' Bug' to the folder name, preserving ScenarioId and timestamp, if not already present
-        private void AddBugToFolderName()
-        {
-            string trimmed = WorkingDir.TrimEnd('\\');
-            string parentDir = Path.GetDirectoryName(trimmed);
-            string folderName = Path.GetFileName(trimmed);
-            // Only append ' Bug' if not already present
-            if (!folderName.EndsWith("Bug", StringComparison.OrdinalIgnoreCase))
+            if (type == "Bug/Issue")
             {
-                string newFolderName = folderName + " Bug";
-                string newWorkingDir = Path.Combine(parentDir, newFolderName) + "\\";
                 try
                 {
-                    Directory.Move(WorkingDir, newWorkingDir);
-                    WorkingDir = newWorkingDir;
-                    _sessionFileFull = WorkingDir + _sessionFile;
+                    string desktopIniPath = Path.Combine(WorkingDir, "desktop.ini");
+                    File.WriteAllText(desktopIniPath,
+                        "[.ShellClassInfo]\r\nIconResource=%SystemRoot%\\System32\\SHELL32.dll,234\r\n");
+                    File.SetAttributes(desktopIniPath, FileAttributes.Hidden | FileAttributes.System);
+                    File.SetAttributes(WorkingDir, File.GetAttributes(WorkingDir) | FileAttributes.System);
                 }
                 catch (Exception ex)
                 {
-                    Logger.Record("[AddBugToFolderName]: Could not rename folder (" + ex.Message + ")", "Session", "error");
+                    Logger.Record("[UpdateNotes]: Failed to set folder icon - " + ex.Message, "Session", "error");
                 }
+
             }
+            Logger.Record("[UpdateNotes ss]: Note added to session log (" + screenshot + ", " + rtfNote + ")", "Session", "info");
         }
         // Save all notes on file, after every single note
         private void SaveToSessionNotes(string note)
@@ -389,7 +286,7 @@ namespace Rapid_Reporter
                                      Htmlstrings.JTableEnd, htmlFileBufferPopups, Htmlstrings.MHtmlEnd);
 
                     File.WriteAllText(htmlFileFull, output, Encoding.UTF8);
-
+                    MessageBox.Show("The HTML was created successfully!\nFile created: " + htmlFileFull, "HTML Conversion Successful!", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -400,9 +297,10 @@ namespace Rapid_Reporter
             Logger.Record("[CSV2HTML]: HTML Report built, done.", "Session", "info");
         }
 
-        public void LoadCsvIntoSession(string csvFile)
+        private void LoadCsvIntoSession(string csvFile)
         {
-            Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables...", "Session", "info");
+            Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables", "Session", "info");
+
             bool exDrRetry;
             do
             {
@@ -444,6 +342,5 @@ namespace Rapid_Reporter
             } while (exDrRetry);
             Logger.Record("[LoadCsvIntoSession]: Grabbing CSV file variables done.", "Session", "info");
         }
-
     }
 }
